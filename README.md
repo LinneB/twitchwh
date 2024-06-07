@@ -2,6 +2,8 @@
 
 TwitchWH is a Twitch Webhook EventSub library for Go.
 
+Full documentation: https://pkg.go.dev/github.com/LinneB/twitchwh
+
 Table of contents:
 
 - [Installation](#installation)
