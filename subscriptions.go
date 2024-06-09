@@ -179,6 +179,27 @@ func (c *Client) RemoveSubscription(id string) error {
 	return fmt.Errorf("Unhandled status code %d", res.StatusCode)
 }
 
+// RemoveSubscriptionByType attempts to remove a subscription based on the type and condition.
+//
+// Note: This will remove ALL subscriptions that match the provided type and condition.
+func (c *Client) RemoveSubscriptionByType(Type string, condition Condition) error {
+	subs, err := c.GetSubscriptionsByType(Type)
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+        // Both of these conditions have unused fields, but since they are both defaulted and of the same type it should be fine
+		if sub.Condition == condition {
+			c.logger.Printf("Removing subscription %s", sub.ID)
+			err := c.RemoveSubscription(sub.ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Internal function to fetch subscriptions using the provided URL parameters.
 // Used by wrapper functions.
 // Automatically handles pagination.

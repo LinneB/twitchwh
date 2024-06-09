@@ -6,6 +6,7 @@ This file contains examples and methods for using TwitchWH.
 - [Client methods](#client-methods)
     - [AddSubscription](#addsubscription)
     - [RemoveSubscription](#removesubscription)
+    - [RemoveSubscriptionByType](#removesubscriptionbytype)
     - [GetSubscriptions](#getsubscriptions)
     - [GetSubscriptionByType](#getsubscriptionbytype)
     - [GetSubscriptionByStatus](#getsubscriptionbystatus)
@@ -57,6 +58,22 @@ func (c *Client) RemoveSubscription(id string) error
 ```go
 subscriptions, _ := client.GetSubscriptions()
 err := client.RemoveSubscription(subscriptions[0].ID) // Assume there is > 0 subscriptions
+```
+
+### RemoveSubscriptionByType
+
+Removes an existing EventSub subscription by type and condition.
+
+Similar to `AddSubscription`, but without the version. (And for removal, of course)
+
+```go
+func (c *Client) RemoveSubscriptionByType(Type string, condition Condition) error
+```
+
+```go
+err := client.RemoveSubscriptionByType("stream.online", twitchwh.Condition{
+	BroadcasterUserID: "215185844",
+})
 ```
 
 ### GetSubscriptions
