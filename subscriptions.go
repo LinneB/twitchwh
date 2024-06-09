@@ -179,68 +179,84 @@ func (c *Client) RemoveSubscription(id string) error {
 	return fmt.Errorf("Unhandled status code %d", res.StatusCode)
 }
 
-func (c *Client) fetchSubscriptions(urlParams string) (subscriptions []Subscription, pagination string, err error) {
-	res, err := c.genericRequest("GET", "/eventsub/subscriptions"+urlParams)
-	if err != nil {
-		return nil, "", fmt.Errorf("Could make request: %w", err)
-	}
+// Internal function to fetch subscriptions using the provided URL parameters.
+// Used by wrapper functions.
+// Automatically handles pagination.
+func (c *Client) fetchSubscriptions(urlParams string) (subscriptions []Subscription, err error) {
+	page := 1
+	cursor := ""
+	for {
+		c.logger.Printf("Fetching page %d of subscriptions", page)
+		page++
 
-	if res.StatusCode != 200 {
-		return nil, "", fmt.Errorf("Helix returned unhandled status code: %d", res.StatusCode)
-	}
+		var params string
+		if cursor != "" {
+			if urlParams == "" {
+				params = urlParams + "?after=" + cursor
+			} else {
+				params = "&after=" + cursor
+			}
+		}
+		res, err := c.genericRequest("GET", "/eventsub/subscriptions"+params)
+		if err != nil {
+			return nil, fmt.Errorf("Could make request: %w", err)
+		}
 
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, "", fmt.Errorf("Could not read response body: %w", err)
-	}
-	var responseStruct struct {
-		Data       []Subscription `json:"data"`
-		Pagination struct {
-			Cursor string `json:"cursor"`
-		} `json:"pagination"`
-	}
-	err = json.Unmarshal(body, &responseStruct)
-	if err != nil {
-		return nil, "", fmt.Errorf("Could not parse response body: %w", err)
-	}
+		if res.StatusCode != 200 {
+			return nil, fmt.Errorf("Helix returned unhandled status code: %d", res.StatusCode)
+		}
 
-	return responseStruct.Data, responseStruct.Pagination.Cursor, nil
+		defer res.Body.Close()
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, fmt.Errorf("Could not read response body: %w", err)
+		}
+		var responseStruct struct {
+			Data       []Subscription `json:"data"`
+			Pagination struct {
+				Cursor string `json:"cursor"`
+			} `json:"pagination"`
+		}
+		err = json.Unmarshal(body, &responseStruct)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse response body: %w", err)
+		}
+
+		subscriptions = append(subscriptions, responseStruct.Data...)
+
+		if responseStruct.Pagination.Cursor == "" {
+			// No more subscriptions to fetch
+			break
+		}
+		cursor = responseStruct.Pagination.Cursor
+	}
+	return subscriptions, nil
 }
 
 // GetSubscriptions retrieves all subscriptions, including revoked ones.
-// If cursor is not an empty string, it fetches subscriptions after that cursor.
+// Automatically handles pagination.
 //
-// Returns subscriptions, pagination cursor to get the next page (if any), and an error (if any).
-func (c *Client) GetSubscriptions(cursor string) (subscriptions []Subscription, pagination string, err error) {
+// Returns subscriptions and an error (if any).
+func (c *Client) GetSubscriptions() (subscriptions []Subscription, err error) {
 	urlParams := ""
-	if cursor != "" {
-		urlParams = "?cursor=" + cursor
-	}
 	return c.fetchSubscriptions(urlParams)
 }
 
 // Get all subscriptions that match the provided type (eg. "stream.online").
-// If cursor is not an empty string, it fetches subscriptions after that cursor.
+// Automatically handles pagination.
 //
-// Returns subscriptions, pagination cursor to get the next page (if any), and an error (if any).
-func (c *Client) GetSubscriptionsByType(Type string, cursor string) (subscriptions []Subscription, pagination string, err error) {
+// Returns subscriptions and an error (if any).
+func (c *Client) GetSubscriptionsByType(Type string) (subscriptions []Subscription, err error) {
 	urlParams := "?type=" + Type
-	if cursor != "" {
-		urlParams = "&cursor=" + cursor
-	}
 	return c.fetchSubscriptions(urlParams)
 }
 
-// Get all subscriptions, including revoked ones, with the provided status.
+// Get all subscriptions with the provided status.
 // For a list of all status types see: https://dev.twitch.tv/docs/api/reference/#get-eventsub-subscriptions .
-// If cursor is not an empty string, it fetches subscriptions after that cursor.
+// Automatically handles pagination.
 //
-// Returns subscriptions, pagination cursor to get the next page (if any), and an error (if any).
-func (c *Client) GetSubscriptionsByStatus(status string, cursor string) (subscriptions []Subscription, pagination string, err error) {
+// Returns subscriptions and an error (if any).
+func (c *Client) GetSubscriptionsByStatus(status string) (subscriptions []Subscription, err error) {
 	urlParams := "?status=" + status
-	if cursor != "" {
-		urlParams = "&cursor=" + cursor
-	}
 	return c.fetchSubscriptions(urlParams)
 }

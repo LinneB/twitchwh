@@ -55,7 +55,7 @@ func (c *Client) RemoveSubscription(id string) error
 ```
 
 ```go
-subscriptions, _, _ := client.GetSubscriptions("")
+subscriptions, _ := client.GetSubscriptions()
 err := client.RemoveSubscription(subscriptions[0].ID) // Assume there is > 0 subscriptions
 ```
 
@@ -63,16 +63,16 @@ err := client.RemoveSubscription(subscriptions[0].ID) // Assume there is > 0 sub
 
 Get all subscriptions, including revoked ones.
 
-Twitch may return a cursor to get the next page of subscriptions. If the returned pagination is not empty, use it as the parameter for the next function call.
+This function will automatically handles pagination.
 
 ```go
-func (c *Client) GetSubscriptions(cursor string) (subscriptions []Subscription, pagination string, err error)
+func (c *Client) GetSubscriptions() (subscriptions []Subscription, err error)
 ```
 
 ```go
-subscriptions, cursor, _ := client.GetSubscriptions("")
-if cursor != "" {
-	nextSubscriptions, nextCursor, _ := client.GetSubscriptions(cursor)
+subscriptions, err := client.GetSubscriptions()
+if err != nil {
+	// Handle error
 }
 ```
 
@@ -81,13 +81,13 @@ if cursor != "" {
 Identical to `GetSubscriptions`, but with a type. (eg. "stream.online")
 
 ```go
-func (c *Client) GetSubscriptionsByType(Type string, cursor string) (subscriptions []Subscription, pagination string, err error)
+func (c *Client) GetSubscriptionsByType(Type string) (subscriptions []Subscription, err error)
 ```
 
 ```go
-subscriptions, cursor, _ := client.GetSubscriptionsByType("stream.online", "")
-if cursor != "" {
-	nextSubscriptions, nextCursor, _ := client.GetSubscriptionsByType("stream.online", cursor)
+subscriptions, err := client.GetSubscriptionsByType("stream.online")
+if err != nil {
+	// Handle error
 }
 ```
 
@@ -96,13 +96,13 @@ if cursor != "" {
 Identical to `GetSubscriptions`, but with a status. (eg. "enabled")
 
 ```go
-func (c *Client) GetSubscriptionsByStatus(status string, cursor string) (subscriptions []Subscription, pagination string, err error)
+func (c *Client) GetSubscriptionsByStatus(status string) (subscriptions []Subscription, err error)
 ```
 
 ```go
-subscriptions, cursor, _ := client.GetSubscriptionsByStatus("enabled", "")
-if cursor != "" {
-	nextSubscriptions, nextCursor, _ := client.GetSubscriptionsByStatus("enabled", cursor)
+subscriptions, err := client.GetSubscriptionsByStatus("enabled")
+if err != nil {
+	// Handle error
 }
 ```
 
