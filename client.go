@@ -43,6 +43,10 @@ type Client struct {
 	// Client.Handler sends verified IDs to this channel to be read in Client.AddSubscription
 	verifiedSubscriptions chan string
 
+	// Fired whenever a subscription is revoked.
+	// Check Subscription.Status for the reason.
+	OnRevocation func(Subscription)
+
 	OnAutomodMessageHold                        func(AutomodMessageHold)
 	OnAutomodMessageUpdate                      func(AutomodMessageUpdate)
 	OnAutomodSettingsUpdate                     func(AutomodSettingsUpdate)

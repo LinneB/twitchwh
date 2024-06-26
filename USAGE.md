@@ -3,6 +3,7 @@
 This file contains examples and methods for using TwitchWH.
 
 - [Configuration](#configuration)
+- [Events](#events)
 - [Client methods](#client-methods)
     - [AddSubscription](#addsubscription)
     - [RemoveSubscription](#removesubscription)
@@ -24,6 +25,26 @@ The Client is configured with a ClientConfig struct. It contains the following f
 | `WebhookSecret` | The webhook secret used to verify events. This should be a random string between 10-100 characters. |
 | `WebhookURL` | The full EventSub URL path, eg: https://mydomain.com/eventsub. |
 | `Debug` | If true, the client will log output to stdout. |
+
+## Events
+
+Listening to event is as simple as setting one of the On<EventName> functions in the Client struct
+
+```go
+client, err := twitchwh.New(config)
+client.OnStreamOnline = func(event twitchwh.StreamOnline) {
+	log.Printf("%s just went live!", event.BroadcasterUserLogin)
+}
+```
+
+Twitch may revoke your subscriptions for a variety of reasons. Whenever TwitchWH recieves a revocation message it fires the OnRevocation handler.
+
+```go
+client, err := twitchwh.New(config)
+client.OnRevocation = func(sub twitchwh.Subscription) {
+	log.Printf("A %s subscription was revoked!", sub.Type)
+}
+```
 
 ## Client methods
 

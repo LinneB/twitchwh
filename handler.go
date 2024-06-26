@@ -159,8 +159,10 @@ func (c *Client) Handler(w http.ResponseWriter, r *http.Request) {
 		}
 		if message_type == messageTypeRevocation {
 			// Subscription was revoked. This could be as simple as a user deactivating or Twitch not reaching the endpoint.
-			// TODO: Resubscribe if applicable
 			c.logger.Printf("Twitch revoked subscription %s", payload.Subscription.ID)
+			if c.OnRevocation != nil {
+				c.OnRevocation(payload.Subscription)
+			}
 			w.WriteHeader(204)
 			return
 		}
