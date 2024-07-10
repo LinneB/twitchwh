@@ -3,7 +3,6 @@ package twitchwh
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -105,12 +104,12 @@ func (c *Client) AddSubscription(Type string, version string, condition Conditio
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("Could not marshal request body: %w", err)
+		return &InternalError{"Could not serialize request body to JSON", err}
 	}
 
 	request, err := http.NewRequest("POST", helixURL+"/eventsub/subscriptions", bytes.NewBuffer(reqBody))
 	if err != nil {
-		return fmt.Errorf("Could not create request: %w", err)
+		return &InternalError{"Could not create request", err}
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -119,17 +118,24 @@ func (c *Client) AddSubscription(Type string, version string, condition Conditio
 
 	res, err := c.httpClient.Do(request)
 	if err != nil {
-		return fmt.Errorf("Could not send request: %w", err)
+		return &InternalError{"Could not send request", err}
 	}
+
+	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return fmt.Errorf("Could not read response body: %w", err)
+		return &InternalError{"Could not read response body", err}
+	}
+
+	if res.StatusCode == 409 {
+		return &DuplicateSubscriptionError{
+			Condition: condition,
+			Type:      Type,
+		}
 	}
 
 	if res.StatusCode != 202 {
-		defer res.Body.Close()
-		c.logger.Println(string(body))
-		return fmt.Errorf("Twitch returned unhandled status code %d", res.StatusCode)
+		return &UnhandledStatusError{res.StatusCode, body}
 	}
 
 	var responseBody struct {
@@ -138,10 +144,13 @@ func (c *Client) AddSubscription(Type string, version string, condition Conditio
 
 	err = json.Unmarshal(body, &responseBody)
 	if err != nil {
-		return fmt.Errorf("Could not parse response body: %w", err)
+		return &InternalError{"Could not parse response body", err}
 	}
 
 	// Returned body is an array that contains a single subscription
+	if len(responseBody.Data) < 1 {
+		return &InternalError{"Helix did not return the subscription they were supposed to", nil}
+	}
 	subscription := responseBody.Data[0]
 
 	// Await confirmation
@@ -158,7 +167,7 @@ func (c *Client) AddSubscription(Type string, version string, condition Conditio
 				continue
 			}
 		case <-time.After(10 * time.Second):
-			return fmt.Errorf("Never received confirmation of subscription: %s", subscription.ID)
+			return &VerificationTimeoutError{subscription}
 		}
 	}
 }
@@ -168,18 +177,33 @@ func (c *Client) RemoveSubscription(id string) error {
 	url := "/eventsub/subscriptions?id=" + id
 	res, err := c.genericRequest("DELETE", url)
 	if err != nil {
-		return fmt.Errorf("Could not create request: %w", err)
+		return &InternalError{"Could not make request", err}
 	}
+
 	if res.StatusCode == 204 {
 		return nil
 	}
-	if res.StatusCode == 404 {
-		return fmt.Errorf("Subscription not found")
+	if res.StatusCode == 401 {
+		return &UnauthorizedError{}
 	}
-	return fmt.Errorf("Unhandled status code %d", res.StatusCode)
+	if res.StatusCode == 404 {
+		return &SubscriptionNotFoundError{}
+	}
+
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return &InternalError{"Could not read response body", err}
+	}
+	return &UnhandledStatusError{
+		Status: res.StatusCode,
+		Body:   body,
+	}
 }
 
 // RemoveSubscriptionByType attempts to remove a subscription based on the type and condition.
+//
+// If no subscriptions are found, it will return nil.
 //
 // Note: This will remove ALL subscriptions that match the provided type and condition.
 func (c *Client) RemoveSubscriptionByType(Type string, condition Condition) error {
@@ -188,7 +212,7 @@ func (c *Client) RemoveSubscriptionByType(Type string, condition Condition) erro
 		return err
 	}
 	for _, sub := range subs {
-        // Both of these conditions have unused fields, but since they are both defaulted and of the same type it should be fine
+		// Both of these conditions have unused fields, but since they are both defaulted and of the same type it should be fine
 		if sub.Condition == condition {
 			c.logger.Printf("Removing subscription %s", sub.ID)
 			err := c.RemoveSubscription(sub.ID)
@@ -220,18 +244,22 @@ func (c *Client) fetchSubscriptions(urlParams string) (subscriptions []Subscript
 		}
 		res, err := c.genericRequest("GET", "/eventsub/subscriptions"+params)
 		if err != nil {
-			return nil, fmt.Errorf("Could make request: %w", err)
-		}
-
-		if res.StatusCode != 200 {
-			return nil, fmt.Errorf("Helix returned unhandled status code: %d", res.StatusCode)
+			return nil, &InternalError{"Could not make request", err}
 		}
 
 		defer res.Body.Close()
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
-			return nil, fmt.Errorf("Could not read response body: %w", err)
+			return nil, &InternalError{"Could not read response body", err}
 		}
+
+		if res.StatusCode == 401 {
+			return nil, &UnauthorizedError{body}
+		}
+		if res.StatusCode != 200 {
+			return nil, &UnhandledStatusError{res.StatusCode, body}
+		}
+
 		var responseStruct struct {
 			Data       []Subscription `json:"data"`
 			Pagination struct {
@@ -240,7 +268,7 @@ func (c *Client) fetchSubscriptions(urlParams string) (subscriptions []Subscript
 		}
 		err = json.Unmarshal(body, &responseStruct)
 		if err != nil {
-			return nil, fmt.Errorf("Could not parse response body: %w", err)
+			return nil, &InternalError{"Could not parse response body", err}
 		}
 
 		subscriptions = append(subscriptions, responseStruct.Data...)

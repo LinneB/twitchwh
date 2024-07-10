@@ -21,21 +21,21 @@ func (c *Client) generateToken(clientID string, secret string) (token string, er
 
 	res, err := c.httpClient.PostForm(tokenURL, values)
 	if err != nil {
-		return "", fmt.Errorf("Could not send request: %w", err)
+		return "", &InternalError{"Could not send request", err}
 	}
 
 	if res.StatusCode == 401 {
-		return "", fmt.Errorf("ClientID or Client secret invalid")
-	}
-
-	if res.StatusCode != 200 {
-		return "", fmt.Errorf("Token generation failed with status: %d", res.StatusCode)
+		return "", &UnauthorizedError{}
 	}
 
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", fmt.Errorf("Could not read response body: %w", err)
+		return "", &InternalError{"Could not read response body", err}
+	}
+
+	if res.StatusCode != 200 {
+		return "", &UnhandledStatusError{res.StatusCode, body}
 	}
 
 	var jsonBody struct {
@@ -46,7 +46,7 @@ func (c *Client) generateToken(clientID string, secret string) (token string, er
 
 	err = json.Unmarshal(body, &jsonBody)
 	if err != nil {
-		return "", fmt.Errorf("Could not serialize token response body: %w", err)
+		return "", &InternalError{"Could not serialize response body", err}
 	}
 
 	return jsonBody.AccessToken, nil
@@ -55,14 +55,14 @@ func (c *Client) generateToken(clientID string, secret string) (token string, er
 func (c *Client) validateToken(token string) (bool, error) {
 	req, err := http.NewRequest("GET", validateURL, nil)
 	if err != nil {
-		return false, fmt.Errorf("Could not create request: %w", err)
+		return false, &InternalError{"Could not create request", err}
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("Could not send request: %w", err)
+		return false, &InternalError{"Could not send request", err}
 	}
 
 	if res.StatusCode == 200 {

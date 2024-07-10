@@ -6,7 +6,6 @@
 package twitchwh
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -142,17 +141,17 @@ func New(config ClientConfig) (*Client, error) {
 		c.logger.Println("Generating token...")
 		token, err := c.generateToken(c.clientID, c.clientSecret)
 		if err != nil {
-			return nil, fmt.Errorf("Could not generate token: %w", err)
+			return nil, &UnauthorizedError{}
 		}
 		c.token = token
 	} else {
 		// Validate user provided token
 		valid, err := c.validateToken(c.token)
 		if err != nil {
-			return nil, fmt.Errorf("Could not validate token: %w", err)
+			return nil, &InternalError{"Could not validate token", err}
 		}
 		if !valid {
-			return nil, fmt.Errorf("Provided token is invalid")
+			return nil, &UnauthorizedError{}
 		}
 	}
 

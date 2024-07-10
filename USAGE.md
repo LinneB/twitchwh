@@ -12,6 +12,7 @@ This file contains examples and methods for using TwitchWH.
     - [GetSubscriptionByType](#getsubscriptionbytype)
     - [GetSubscriptionByStatus](#getsubscriptionbystatus)
     - [Handler](#handler)
+- [Handling errors](#handling-errors)
 
 ## Configuration
 
@@ -156,4 +157,18 @@ func (c *Client) Handler(w http.ResponseWriter, r *http.Request)
 ```go
 http.HandleFunc("/eventsub", client.Handler)
 http.ListenAndServe(":8080", nil)
+```
+
+## Handling errors
+
+The client methods above may fail for a variety of reasons, some of which may be useful to your application.
+
+Check the methods source code to see what errors they can return.
+
+```go
+err := client.RemoveSubscription("really-long-fake-subscription-id")
+var notFound *twitchwh.SubscriptionNotFoundError
+if errors.As(err, &notFound) {
+	log.Printf("Could not remove subscription, since it doesnt exist: %s", notFound)
+}
 ```
