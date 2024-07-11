@@ -1,3 +1,12 @@
+## v0.0.3
+
+Released: 2024-07-11
+
+This is a non-breaking feature release that reworks error handling and adds a new handler.
+
+- Added a new `OnRevocation` handler for whenever Twitch revokes a subscription.
+- Added custom error types for common conditions. For example: UnauthorizedError for authentication failures.
+
 ## v0.0.2
 
 Released: 2024-06-09
