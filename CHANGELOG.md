@@ -1,3 +1,12 @@
+## v0.0.4
+
+Released: 2024-08-19
+
+This is a **breaking** feature release. It adds support for external tokens using the `SetToken` method and `ExternalToken` config option.
+
+- Added a new `ExternalToken` config option. If true, the client won't validate or generate new tokens.
+- Properly validate and regenerate tokens.
+
 ## v0.0.3
 
 Released: 2024-07-11
