@@ -1,3 +1,9 @@
+## v0.0.5
+
+Released: 2024-08-19
+
+This is a tiny bugfix that changes the token validation interval from 1 minute to 1 hour.
+
 ## v0.0.4
 
 Released: 2024-08-19
