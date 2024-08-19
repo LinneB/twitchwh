@@ -12,6 +12,13 @@ const oauthURL = "https://id.twitch.tv/oauth2"
 const tokenURL = oauthURL + "/token"
 const validateURL = oauthURL + "/validate"
 
+// Assign a new app access token
+// This should only be used if you have your own token validation and regeneration logic.
+// This is builtin to twitchwh, but can be disabled using [twitchwh.ClientConfig.ShouldValidate].
+func (c *Client) SetToken(token string) {
+	c.token = token
+}
+
 func (c *Client) generateToken(clientID string, secret string) (token string, err error) {
 	values := url.Values{
 		"client_id":     {clientID},

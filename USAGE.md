@@ -12,6 +12,7 @@ This file contains examples and methods for using TwitchWH.
     - [GetSubscriptionByType](#getsubscriptionbytype)
     - [GetSubscriptionByStatus](#getsubscriptionbystatus)
     - [Handler](#handler)
+    - [SetToken](#settoken)
 - [Handling errors](#handling-errors)
 
 ## Configuration
@@ -25,6 +26,7 @@ The Client is configured with a ClientConfig struct. It contains the following f
 | `Token` | (Optional) If you have generated a token elsewhere in your project you can supply it here. If you have this assigned you can remove `ClientSecret` |
 | `WebhookSecret` | The webhook secret used to verify events. This should be a random string between 10-100 characters. |
 | `WebhookURL` | The full EventSub URL path, eg: https://mydomain.com/eventsub. |
+| `ExternalToken` | Whether the client should use a user provided token rather than generating its own. If this is true you **must** validate and update the token using `Client.SetToken()` |
 | `Debug` | If true, the client will log output to stdout. |
 
 ## Events
@@ -157,6 +159,26 @@ func (c *Client) Handler(w http.ResponseWriter, r *http.Request)
 ```go
 http.HandleFunc("/eventsub", client.Handler)
 http.ListenAndServe(":8080", nil)
+```
+
+### SetToken
+
+Assign a new token to be used by the client.
+This only has to be done if `ClientConfig.ExternalToken` is true.
+
+```go
+func (c *Client) SetToken(token string)
+```
+
+```go
+client, _ := twitchwh.New(twitchwh.ClientConfig{
+	ClientID:      "myclientid",
+	Token:         "appaccesstoken",
+	ExternalToken: true,
+})
+if TokenInvalid() {
+	client.SetToken(newToken)
+}
 ```
 
 ## Handling errors

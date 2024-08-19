@@ -41,6 +41,8 @@ func main() {
 		WebhookSecret: "random string between 10 and 100 characters",
 		// This example assumes you have a domain that points to this app on port 8080
 		WebhookURL:    "https://yourdomain.com/eventsub",
+		// If you have your own token logic, set this to true and update the token using Client.SetToken()
+		ExternalToken: false,
 		// Enable log output
 		Debug: true,
 	})
