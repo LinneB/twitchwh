@@ -153,7 +153,7 @@ func New(config ClientConfig) (*Client, error) {
 		c.token = token
 		go func() {
 			for {
-				time.Sleep(1 * time.Minute)
+				time.Sleep(1 * time.Hour)
 				valid, err := c.validateToken(c.token)
 				if err != nil {
 					c.logger.Printf("Could not validate token: %s", err)
