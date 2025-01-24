@@ -6,6 +6,7 @@
 package twitchwh
 
 import (
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -50,76 +51,13 @@ type Client struct {
 	// Fired whenever a subscription is revoked.
 	// Check Subscription.Status for the reason.
 	OnRevocation func(Subscription)
+	handlers     map[string]func(json.RawMessage)
+}
 
-	OnAutomodMessageHold                        func(AutomodMessageHold)
-	OnAutomodMessageUpdate                      func(AutomodMessageUpdate)
-	OnAutomodSettingsUpdate                     func(AutomodSettingsUpdate)
-	OnAutomodTermsUpdate                        func(AutomodTermsUpdate)
-	OnChannelUpdate                             func(ChannelUpdate)
-	OnChannelFollow                             func(ChannelFollow)
-	OnChannelAdBreakBegin                       func(ChannelAdBreakBegin)
-	OnChannelChatClear                          func(ChannelChatClear)
-	OnChannelChatClearUserMessages              func(ChannelChatClearUserMessages)
-	OnChannelChatMessage                        func(ChannelChatMessage)
-	OnChannelChatMessageDelete                  func(ChannelChatMessageDelete)
-	OnChannelChatNotification                   func(ChannelChatNotification)
-	OnChannelChatSettingsUpdate                 func(ChannelChatSettingsUpdate)
-	OnChannelChatUserMessageHold                func(ChannelChatUserMessageHold)
-	OnChannelChatUserMessageUpdate              func(ChannelChatUserMessageUpdate)
-	OnChannelSubscribe                          func(ChannelSubscribe)
-	OnChannelSubscriptionEnd                    func(ChannelSubscriptionEnd)
-	OnChannelSubscriptionGift                   func(ChannelSubscriptionGift)
-	OnChannelSubscriptionMessage                func(ChannelSubscriptionMessage)
-	OnChannelCheer                              func(ChannelCheer)
-	OnChannelRaid                               func(ChannelRaid)
-	OnChannelBan                                func(ChannelBan)
-	OnChannelUnban                              func(ChannelUnban)
-	OnChannelUnbanRequestCreate                 func(ChannelUnbanRequestCreate)
-	OnChannelUnbanRequestResolve                func(ChannelUnbanRequestResolve)
-	OnChannelModerate                           func(ChannelModerate)
-	OnChannelModeratorAdd                       func(ChannelModeratorAdd)
-	OnChannelModeratorRemove                    func(ChannelModeratorRemove)
-	OnChannelPointsAutomaticRewardRedemption    func(ChannelPointsAutomaticRewardRedemption)
-	OnChannelPointsCustomRewardAdd              func(ChannelPointsCustomRewardAdd)
-	OnChannelPointsCustomRewardUpdate           func(ChannelPointsCustomRewardUpdate)
-	OnChannelPointsCustomRewardRemove           func(ChannelPointsCustomRewardRemove)
-	OnChannelPointsCustomRewardRedemption       func(ChannelPointsCustomRewardRedemption)
-	OnChannelPointsCustomRewardRedemptionAdd    func(ChannelPointsCustomRewardRedemptionAdd)
-	OnChannelPointsCustomRewardRedemptionUpdate func(ChannelPointsCustomRewardRedemptionUpdate)
-	OnChannelPollBegin                          func(ChannelPollBegin)
-	OnChannelPollProgress                       func(ChannelPollProgress)
-	OnChannelPollEnd                            func(ChannelPollEnd)
-	OnChannelPredictionBegin                    func(ChannelPredictionBegin)
-	OnChannelPredictionProgress                 func(ChannelPredictionProgress)
-	OnChannelPredictionLock                     func(ChannelPredictionLock)
-	OnChannelPredictionEnd                      func(ChannelPredictionEnd)
-	OnChannelSuspiciousUserMessage              func(ChannelSuspiciousUserMessage)
-	OnChannelSuspiciousUserUpdate               func(ChannelSuspiciousUserUpdate)
-	OnChannelVIPAdd                             func(ChannelVIPAdd)
-	OnChannelVIPRemove                          func(ChannelVIPRemove)
-	OnChannelCharityCampaignDonate              func(ChannelCharityCampaignDonate)
-	OnChannelCharityCampaignStart               func(ChannelCharityCampaignStart)
-	OnChannelCharityCampaignProgress            func(ChannelCharityCampaignProgress)
-	OnChannelCharityCampaignStop                func(ChannelCharityCampaignStop)
-	OnConduitShardDisabled                      func(ConduitShardDisabled)
-	OnDropEntitlementGrant                      func(DropEntitlementGrant)
-	OnExtensionBitsTransactionCreate            func(ExtensionBitsTransactionCreate)
-	OnChannelGoalBegin                          func(ChannelGoalBegin)
-	OnChannelGoalProgress                       func(ChannelGoalProgress)
-	OnChannelGoalEnd                            func(ChannelGoalEnd)
-	OnChannelHypeTrainBegin                     func(ChannelHypeTrainBegin)
-	OnChannelHypeTrainProgress                  func(ChannelHypeTrainProgress)
-	OnChannelHypeTrainEnd                       func(ChannelHypeTrainEnd)
-	OnChannelShieldModeBegin                    func(ChannelShieldModeBegin)
-	OnChannelShieldModeEnd                      func(ChannelShieldModeEnd)
-	OnChannelShoutoutCreate                     func(ChannelShoutoutCreate)
-	OnChannelShoutoutReceive                    func(ChannelShoutoutReceive)
-	OnStreamOnline                              func(StreamOnline)
-	OnStreamOffline                             func(StreamOffline)
-	OnUserAuthorizationGrant                    func(UserAuthorizationGrant)
-	OnUserAuthorizationRevoke                   func(UserAuthorizationRevoke)
-	OnUserUpdate                                func(UserUpdate)
-	OnUserWhisperMessage                        func(UserWhisperMessage)
+// Assign a handler to a particular event type. The handler takes a json.RawMessage that contains the event body.
+// For a list of event types, see [https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/].
+func (c *Client) On(event string, handler func(json.RawMessage)) {
+	c.handlers[event] = handler
 }
 
 // Creates a new client
@@ -135,6 +73,7 @@ func New(config ClientConfig) (*Client, error) {
 		debug:                 config.Debug,
 		httpClient:            &http.Client{},
 		verifiedSubscriptions: make(chan string),
+		handlers:              make(map[string]func(json.RawMessage)),
 	}
 
 	// Disable logging if debug is false
