@@ -1,3 +1,13 @@
+## v0.1.0
+
+Released: 2025-01-24
+
+This is a breaking release, mainly focusing on cleanup.
+
+- Events are now generic `json.RawMessage`, and are parsed by the user.
+- Helix requests that `401` will be retried after refreshing the token
+- Remove `ExternalToken` option
+
 ## v0.0.5
 
 Released: 2024-08-19

@@ -194,6 +194,7 @@ func (c *Client) addSubscription(Type string, version string, condition Conditio
 }
 
 // RemoveSubscription attempts to remove a subscription based on the ID.
+// Returns [SubscriptionNotFoundError] if the subscription does not exist.
 func (c *Client) RemoveSubscription(id string) error {
 	err := c.removeSubscription(id)
 	if err != nil {
