@@ -3,6 +3,7 @@ package twitchwh
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"time"
@@ -93,6 +94,23 @@ type subscriptionRequest struct {
 //
 // [EventSub subscription types]: https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/
 func (c *Client) AddSubscription(Type string, version string, condition Condition) error {
+	err := c.addSubscription(Type, version, condition)
+	if err != nil {
+		var uaErr *UnauthorizedError
+		if errors.As(err, &uaErr) {
+			c.logger.Println("Token invalid, generating a new one")
+			token, err := c.generateToken(c.clientID, c.clientSecret)
+			if err != nil {
+				return err
+			}
+			c.token = token
+			return c.addSubscription(Type, version, condition)
+		}
+	}
+	return nil
+}
+
+func (c *Client) addSubscription(Type string, version string, condition Condition) error {
 	reqBody, err := json.Marshal(subscriptionRequest{
 		Type:      Type,
 		Version:   version,
@@ -134,6 +152,9 @@ func (c *Client) AddSubscription(Type string, version string, condition Conditio
 		}
 	}
 
+	if res.StatusCode == 401 {
+		return &UnauthorizedError{}
+	}
 	if res.StatusCode != 202 {
 		return &UnhandledStatusError{res.StatusCode, body}
 	}
@@ -173,7 +194,25 @@ func (c *Client) AddSubscription(Type string, version string, condition Conditio
 }
 
 // RemoveSubscription attempts to remove a subscription based on the ID.
+// Returns [SubscriptionNotFoundError] if the subscription does not exist.
 func (c *Client) RemoveSubscription(id string) error {
+	err := c.removeSubscription(id)
+	if err != nil {
+		var uaErr *UnauthorizedError
+		if errors.As(err, &uaErr) {
+			c.logger.Println("Token invalid, generating a new one")
+			token, err := c.generateToken(c.clientID, c.clientSecret)
+			if err != nil {
+				return err
+			}
+			c.token = token
+			return c.removeSubscription(id)
+		}
+	}
+	return err
+}
+
+func (c *Client) removeSubscription(id string) error {
 	url := "/eventsub/subscriptions?id=" + id
 	res, err := c.genericRequest("DELETE", url)
 	if err != nil {
@@ -246,6 +285,18 @@ func (c *Client) fetchSubscriptions(urlParams string) (subscriptions []Subscript
 		if err != nil {
 			return nil, &InternalError{"Could not make request", err}
 		}
+		if res.StatusCode == 401 {
+			c.logger.Println("Token invalid, generating a new one")
+			token, err := c.generateToken(c.clientID, c.clientSecret)
+			if err != nil {
+				return nil, err
+			}
+			c.token = token
+			res, err = c.genericRequest("GET", "/eventsub/subscriptions"+params)
+			if err != nil {
+				return nil, &InternalError{"Could not make request", err}
+			}
+		}
 
 		defer res.Body.Close()
 		body, err := io.ReadAll(res.Body)
@@ -253,9 +304,6 @@ func (c *Client) fetchSubscriptions(urlParams string) (subscriptions []Subscript
 			return nil, &InternalError{"Could not read response body", err}
 		}
 
-		if res.StatusCode == 401 {
-			return nil, &UnauthorizedError{body}
-		}
 		if res.StatusCode != 200 {
 			return nil, &UnhandledStatusError{res.StatusCode, body}
 		}
