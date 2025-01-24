@@ -3,9 +3,7 @@ package twitchwh
 import "fmt"
 
 // Helix returned an authorization error. This usually means the token, Client-ID, or client secret are invalid.
-type UnauthorizedError struct {
-	Body []byte
-}
+type UnauthorizedError struct{}
 
 func (e *UnauthorizedError) Error() string {
 	return "Helix returned 401 Unauthorized"

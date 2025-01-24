@@ -20,15 +20,10 @@ type ClientConfig struct {
 	ClientID string
 	// Client Secret generated for your Twitch application. !! THIS IS NOT YOUR WEBHOOK SECRET !!
 	ClientSecret string
-	// If you have generated a token elsewhere in your project you can supply it here
-	Token string
 	// Webhook secret used to verify events. This should be a random string between 10-100 characters
 	WebhookSecret string
 	// Full EventSub URL path, eg: https://mydomain.com/eventsub
 	WebhookURL string
-	// If you have your own token logic, you should set this to true and update tokens using Client.SetToken to prevent duplicates.
-	// If this is false twitchwh will use its own internal token generation and validation system.
-	ExternalToken bool
 	// Log output
 	Debug bool
 }
@@ -39,7 +34,6 @@ type Client struct {
 	token         string
 	webhookSecret string
 	webhookURL    string
-	externalToken bool
 	debug         bool
 
 	logger        *log.Logger
@@ -65,11 +59,9 @@ func New(config ClientConfig) (*Client, error) {
 	c := &Client{
 		clientID:              config.ClientID,
 		clientSecret:          config.ClientSecret,
-		token:                 config.Token,
 		webhookSecret:         config.WebhookSecret,
 		webhookURL:            config.WebhookURL,
 		logger:                log.New(os.Stdout, "TwitchWH: ", log.Ltime|log.Lmicroseconds),
-		externalToken:         config.ExternalToken,
 		debug:                 config.Debug,
 		httpClient:            &http.Client{},
 		verifiedSubscriptions: make(chan string),
@@ -81,37 +73,32 @@ func New(config ClientConfig) (*Client, error) {
 		c.logger.SetOutput(io.Discard)
 	}
 
-	// Generate token if neccesary
-	if !c.externalToken {
-		c.logger.Println("Using twitchwh internal token store")
-		token, err := c.generateToken(c.clientID, c.clientSecret)
-		if err != nil {
-			return nil, &UnauthorizedError{}
-		}
-		c.logger.Println("Generated token")
-		c.token = token
-		go func() {
-			for {
-				time.Sleep(1 * time.Hour)
-				valid, err := c.validateToken(c.token)
+	c.logger.Println("Generating token")
+	token, err := c.generateToken(c.clientID, c.clientSecret)
+	if err != nil {
+		return nil, err
+	}
+	c.logger.Println("Token generated")
+	c.token = token
+	go func() {
+		for {
+			time.Sleep(1 * time.Hour)
+			valid, err := c.validateToken(c.token)
+			if err != nil {
+				c.logger.Printf("Could not validate token: %s", err)
+				continue
+			}
+			if !valid {
+				c.logger.Println("Token invalid, generating a new one")
+				token, err := c.generateToken(c.clientID, c.clientSecret)
 				if err != nil {
-					c.logger.Printf("Could not validate token: %s", err)
+					c.logger.Printf("Could not generate token: %s", err)
 					continue
 				}
-				if !valid {
-					c.logger.Println("Token invalid, generating a new one")
-					token, err := c.generateToken(c.clientID, c.clientSecret)
-					if err != nil {
-						c.logger.Printf("Could not validate token: %s", err)
-						continue
-					}
-					c.token = token
-				}
+				c.token = token
 			}
-		}()
-	} else {
-		c.logger.Println("Using external token store")
-	}
+		}
+	}()
 
 	return c, nil
 }
